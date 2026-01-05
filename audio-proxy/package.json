@@ -1,0 +1,16 @@
+{
+    "name": "audio-proxy",
+    "version": "1.0.0",
+    "description": "Proxy Jamendo audio with CORS headers for Web Audio API analysis",
+    "main": "src/main.ts",
+    "scripts": {
+        "build": "tsc"
+    },
+    "dependencies": {
+        "node-appwrite": "^12.0.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "typescript": "^5.0.0"
+    }
+}

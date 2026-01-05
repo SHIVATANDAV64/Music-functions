@@ -1,0 +1,18 @@
+{
+    "name": "get-tracks",
+    "version": "1.0.0",
+    "description": "Fetch music tracks with filtering",
+    "main": "src/main.js",
+    "type": "module",
+    "scripts": {
+        "build": "tsc",
+        "start": "node src/main.js"
+    },
+    "dependencies": {
+        "node-appwrite": "^14.0.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.19.27",
+        "typescript": "^5.0.0"
+    }
+}

@@ -1,0 +1,107 @@
+{
+    "projectId": "your-project-id",
+    "projectName": "project-name",
+    "functions": [
+        {
+            "$id": "get-tracks",
+            "name": "Get Tracks",
+            "runtime": "node-21.0",
+            "execute": [
+                "any"
+            ],
+            "entrypoint": "src/main.js",
+            "path": "get-tracks",
+            "commands": "npm install && npm run build",
+            "scopes": [
+                "databases.read"
+            ]
+        },
+        {
+            "$id": "get-podcasts",
+            "name": "Get Podcasts",
+            "runtime": "node-21.0",
+            "execute": [
+                "any"
+            ],
+            "entrypoint": "src/main.js",
+            "path": "get-podcasts",
+            "commands": "npm install && npm run build",
+            "scopes": [
+                "databases.read"
+            ]
+        },
+        {
+            "$id": "manage-playlists",
+            "name": "Manage Playlists",
+            "runtime": "node-21.0",
+            "execute": [
+                "users"
+            ],
+            "entrypoint": "src/main.js",
+            "path": "manage-playlists",
+            "commands": "npm install && npm run build",
+            "scopes": [
+                "databases.read",
+                "databases.write"
+            ]
+        },
+        {
+            "$id": "record-history",
+            "name": "Record History",
+            "runtime": "node-21.0",
+            "execute": [
+                "users"
+            ],
+            "entrypoint": "src/main.js",
+            "path": "record-history",
+            "commands": "npm install && npm run build",
+            "scopes": [
+                "databases.read",
+                "databases.write"
+            ]
+        },
+        {
+            "$id": "admin-upload",
+            "name": "Admin Upload",
+            "runtime": "node-21.0",
+            "execute": [
+                "users"
+            ],
+            "entrypoint": "src/main.js",
+            "path": "admin-upload",
+            "commands": "npm install && npm run build",
+            "scopes": [
+                "databases.read",
+                "databases.write",
+                "files.read",
+                "files.write"
+            ]
+        },
+        {
+            "$id": "search",
+            "name": "Search",
+            "runtime": "node-21.0",
+            "execute": [
+                "any"
+            ],
+            "entrypoint": "src/main.js",
+            "path": "search",
+            "commands": "npm install && npm run build",
+            "scopes": [
+                "databases.read"
+            ]
+        },
+        {
+            "$id": "audio-proxy",
+            "name": "Audio Proxy",
+            "runtime": "node-21.0",
+            "execute": [
+                "any"
+            ],
+            "entrypoint": "src/main.js",
+            "path": "audio-proxy",
+            "commands": "npm install && npm run build",
+            "scopes": []
+        }
+    ]
+}
