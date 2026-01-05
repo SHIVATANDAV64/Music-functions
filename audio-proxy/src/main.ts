@@ -1,5 +1,8 @@
 import { Client, Storage, ID } from 'node-appwrite';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import { tmpdir } from 'os';
 
 interface FunctionContext {
     req: {
@@ -72,21 +75,27 @@ export default async ({ req, res, log, error }: FunctionContext) => {
         const audioBuffer = await response.arrayBuffer();
         const audioBufferNode = Buffer.from(audioBuffer);
 
-        // 3. Upload to Appwrite Storage
-        log(`Uploading ${audioBufferNode.length} bytes to bucket...`);
+        // 3. Write to temporary file for robust uploading
+        const tempPath = path.join(tmpdir(), `${fileId}.mp3`);
+        fs.writeFileSync(tempPath, audioBufferNode);
+        log(`Saved to temp: ${tempPath} (${audioBufferNode.length} bytes)`);
 
         try {
-            // Some versions of node-appwrite accept a Buffer directly
+            // 4. Upload to Appwrite Storage using a ReadStream
+            // We use 'any' cast here to bypass potential local SDK type mismatches 
+            // while ensuring it works in the Node.js runtime.
             await (storage as any).createFile(
                 BUCKET_ID,
                 fileId,
-                audioBufferNode,
-                ['read("any")'] // Optional: Set permissions here too
+                fs.createReadStream(tempPath),
+                ['read("any")']
             );
             log(`Successfully cached track: ${fileId}`);
-        } catch (uploadError: any) {
-            error(`Upload failed: ${uploadError.message}`);
-            throw uploadError;
+        } finally {
+            // Always clean up temp file
+            if (fs.existsSync(tempPath)) {
+                try { fs.unlinkSync(tempPath); } catch (e) { }
+            }
         }
 
         return res.json({ success: true, fileId });
