@@ -45,11 +45,17 @@ export default async ({ req, res, log, error }) => {
         const audioBuffer = await response.arrayBuffer();
         const audioBufferNode = Buffer.from(audioBuffer);
         // 3. Upload to Appwrite Storage
+        // We manually craft the file object because InputFile might be missing from types,
+        // and the SDK requires 'size', 'name', and 'source' to perform the upload.
         log(`Uploading ${audioBufferNode.length} bytes to bucket...`);
         try {
-            // Some versions of node-appwrite accept a Buffer directly
-            await storage.createFile(BUCKET_ID, fileId, audioBufferNode, ['read("any")'] // Optional: Set permissions here too
-            );
+            const fileToUpload = {
+                name: `${fileId}.mp3`,
+                size: audioBufferNode.length,
+                type: 'audio/mpeg',
+                source: audioBufferNode
+            };
+            await storage.createFile(BUCKET_ID, fileId, fileToUpload, ['read("any")']);
             log(`Successfully cached track: ${fileId}`);
         }
         catch (uploadError) {

@@ -1,8 +1,5 @@
 import { Client, Storage, ID } from 'node-appwrite';
 import crypto from 'crypto';
-import fs from 'fs';
-import path from 'path';
-import { tmpdir } from 'os';
 
 interface FunctionContext {
     req: {
@@ -75,27 +72,29 @@ export default async ({ req, res, log, error }: FunctionContext) => {
         const audioBuffer = await response.arrayBuffer();
         const audioBufferNode = Buffer.from(audioBuffer);
 
-        // 3. Write to temporary file for robust uploading
-        const tempPath = path.join(tmpdir(), `${fileId}.mp3`);
-        fs.writeFileSync(tempPath, audioBufferNode);
-        log(`Saved to temp: ${tempPath} (${audioBufferNode.length} bytes)`);
+        // 3. Upload to Appwrite Storage
+        // We manually craft the file object because InputFile might be missing from types,
+        // and the SDK requires 'size', 'name', and 'source' to perform the upload.
+        log(`Uploading ${audioBufferNode.length} bytes to bucket...`);
 
         try {
-            // 4. Upload to Appwrite Storage using a ReadStream
-            // We use 'any' cast here to bypass potential local SDK type mismatches 
-            // while ensuring it works in the Node.js runtime.
+            const fileToUpload = {
+                name: `${fileId}.mp3`,
+                size: audioBufferNode.length,
+                type: 'audio/mpeg',
+                source: audioBufferNode
+            };
+
             await (storage as any).createFile(
                 BUCKET_ID,
                 fileId,
-                fs.createReadStream(tempPath),
+                fileToUpload,
                 ['read("any")']
             );
             log(`Successfully cached track: ${fileId}`);
-        } finally {
-            // Always clean up temp file
-            if (fs.existsSync(tempPath)) {
-                try { fs.unlinkSync(tempPath); } catch (e) { }
-            }
+        } catch (uploadError: any) {
+            error(`Upload failed: ${uploadError.message}`);
+            throw uploadError;
         }
 
         return res.json({ success: true, fileId });
