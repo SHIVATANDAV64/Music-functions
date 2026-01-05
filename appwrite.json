@@ -7,7 +7,7 @@
             "name": "Get Tracks",
             "runtime": "node-21.0",
             "execute": [
-                "any"
+                "users"
             ],
             "entrypoint": "src/main.js",
             "path": "get-tracks",
@@ -21,7 +21,7 @@
             "name": "Get Podcasts",
             "runtime": "node-21.0",
             "execute": [
-                "any"
+                "users"
             ],
             "entrypoint": "src/main.js",
             "path": "get-podcasts",
@@ -82,7 +82,7 @@
             "name": "Search",
             "runtime": "node-21.0",
             "execute": [
-                "any"
+                "users"
             ],
             "entrypoint": "src/main.js",
             "path": "search",

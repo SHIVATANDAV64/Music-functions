@@ -48,6 +48,12 @@ export default async ({ req, res, log, error }: FunctionContext) => {
 
     const databases = new Databases(client);
 
+    // Validate user authentication
+    const userId = req.headers['x-appwrite-user-id'];
+    if (!userId) {
+        return res.json({ success: false, error: 'Authentication required' }, 401);
+    }
+
     try {
         // Parse request body with validation
         const body: RequestBody = req.body ? JSON.parse(req.body) : {};
