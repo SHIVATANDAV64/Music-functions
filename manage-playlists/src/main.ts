@@ -113,7 +113,7 @@ export default async ({ req, res, log, error }: FunctionContext) => {
                     return res.json({ success: false, error: 'Access denied' }, 403);
                 }
 
-                // Get tracks
+                // Get tracks from playlist_tracks collection
                 const tracksResult = await databases.listDocuments(
                     DATABASE_ID,
                     'playlist_tracks',
@@ -123,22 +123,30 @@ export default async ({ req, res, log, error }: FunctionContext) => {
                     ]
                 );
 
-                // Fetch full track data
-                const trackIds = tracksResult.documents.map((t: any) => t.track_id);
-                let tracks: unknown[] = [];
-
-                if (trackIds.length > 0) {
-                    const tracksData = await databases.listDocuments(
-                        DATABASE_ID,
-                        'tracks',
-                        [Query.equal('$id', trackIds)]
-                    );
-                    tracks = tracksData.documents;
-                }
+                // For Appwrite tracks, we can optionally attach metadata, 
+                // but for Jamendo tracks, the frontend will handle retrieval.
+                // To keep it consistent with manage-favorites, we'll return the joined data.
+                const tracksWithDetails = await Promise.all(
+                    tracksResult.documents.map(async (pt: any) => {
+                        if (pt.track_source === 'appwrite') {
+                            try {
+                                const track = await databases.getDocument(
+                                    DATABASE_ID,
+                                    'tracks',
+                                    pt.track_id
+                                );
+                                return { ...pt, track };
+                            } catch {
+                                return pt;
+                            }
+                        }
+                        return pt;
+                    })
+                );
 
                 return res.json({
                     success: true,
-                    data: { ...playlist, tracks },
+                    data: { ...playlist, tracks: tracksWithDetails },
                 });
             }
 

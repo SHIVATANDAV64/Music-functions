@@ -100,11 +100,30 @@ export default async ({ req, res, log, error }: FunctionContext) => {
         }
 
         // Execute query
-        const result = await databases.listDocuments(
-            DATABASE_ID,
-            COLLECTION_ID,
-            queries
-        );
+        let result;
+        try {
+            result = await databases.listDocuments(
+                DATABASE_ID,
+                COLLECTION_ID,
+                queries
+            );
+        } catch (err) {
+            // If search query failed (likely missing index), try fallback search
+            if (search) {
+                log('Search failed, trying artist fallback...');
+                // Remove the search(title) query and try contains(artist)
+                const fallbackQueries = queries.filter(q => !q.includes('search("title"'));
+                fallbackQueries.push(Query.contains('artist', search));
+
+                result = await databases.listDocuments(
+                    DATABASE_ID,
+                    COLLECTION_ID,
+                    fallbackQueries
+                );
+            } else {
+                throw err;
+            }
+        }
 
         log(`Found ${result.total} tracks, returning ${result.documents.length}`);
 

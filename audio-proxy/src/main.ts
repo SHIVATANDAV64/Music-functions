@@ -121,14 +121,17 @@ export default async ({ req, res, log, error }: FunctionContext) => {
             responseHeaders['Accept-Ranges'] = acceptRanges;
         }
 
-        // Get audio data
+        // Get audio data as binary
         const audioBuffer = await response.arrayBuffer();
         const audioData = new Uint8Array(audioBuffer);
 
         log(`Proxied ${audioData.length} bytes`);
 
-        // Return the audio with CORS headers
-        return res.send(audioData, response.status, responseHeaders);
+        // Convert to base64 string to ensure stability across SDKs
+        const base64Data = Buffer.from(audioData).toString('base64');
+
+        // Return the base64 string
+        return res.send(base64Data, response.status, responseHeaders);
 
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Unknown error';
