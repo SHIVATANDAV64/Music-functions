@@ -1,0 +1,16 @@
+{
+    "name": "manage-favorites",
+    "version": "1.0.0",
+    "description": "Manage user favorites",
+    "main": "src/main.js",
+    "scripts": {
+        "build": "tsc"
+    },
+    "dependencies": {
+        "node-appwrite": "^14.0.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "typescript": "^5.0.0"
+    }
+}

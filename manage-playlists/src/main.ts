@@ -15,6 +15,7 @@ interface RequestBody {
     name?: string;
     description?: string;
     trackId?: string;
+    trackSource?: 'jamendo' | 'appwrite';
     position?: number;
 }
 
@@ -48,7 +49,7 @@ export default async ({ req, res, log, error }: FunctionContext) => {
 
     try {
         const body: RequestBody = req.body ? JSON.parse(req.body) : {};
-        const { action, playlistId, name, description, trackId, position } = body;
+        const { action, playlistId, name, description, trackId, trackSource, position } = body;
 
         log(`Playlist action: ${action} by user: ${userId}`);
 
@@ -215,6 +216,7 @@ export default async ({ req, res, log, error }: FunctionContext) => {
                     {
                         playlist_id: playlistId,
                         track_id: trackId,
+                        track_source: trackSource || 'jamendo',
                         position: position ?? nextPosition,
                         added_at: new Date().toISOString(),
                     },

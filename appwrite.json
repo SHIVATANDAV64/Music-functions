@@ -102,6 +102,21 @@
             "path": "audio-proxy",
             "commands": "npm install && npm run build",
             "scopes": []
+        },
+        {
+            "$id": "manage-favorites",
+            "name": "Manage Favorites",
+            "runtime": "node-21.0",
+            "execute": [
+                "users"
+            ],
+            "entrypoint": "src/main.js",
+            "path": "manage-favorites",
+            "commands": "npm install && npm run build",
+            "scopes": [
+                "databases.read",
+                "databases.write"
+            ]
         }
     ]
 }
