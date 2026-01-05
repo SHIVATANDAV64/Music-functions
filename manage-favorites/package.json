@@ -3,8 +3,10 @@
     "version": "1.0.0",
     "description": "Manage user favorites",
     "main": "src/main.js",
+    "type": "module",
     "scripts": {
-        "build": "tsc"
+        "build": "tsc",
+        "start": "node src/main.js"
     },
     "dependencies": {
         "node-appwrite": "^14.0.0"
