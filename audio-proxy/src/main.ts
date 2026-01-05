@@ -1,13 +1,5 @@
-/**
- * Audio Proxy Function
- * Proxies Jamendo audio streams with CORS headers to enable Web Audio API analysis
- * 
- * CORS Issue: Jamendo's CDN doesn't send Access-Control-Allow-Origin headers,
- * so browsers block Web Audio API from analyzing cross-origin audio.
- * This proxy fetches the audio and serves it with proper CORS headers.
- * 
- * @endpoint GET /audio-proxy?url=<encoded_audio_url>
- */
+import { Client, Storage, ID } from 'node-appwrite';
+import crypto from 'crypto';
 
 interface FunctionContext {
     req: {
@@ -24,7 +16,6 @@ interface FunctionContext {
     error: (message: string) => void;
 }
 
-// Allowed domains for security - only proxy from trusted sources
 const ALLOWED_DOMAINS = [
     'prod-1.storage.jamendo.com',
     'storage.jamendo.com',
@@ -32,114 +23,77 @@ const ALLOWED_DOMAINS = [
     'mp3d.jamendo.com',
 ];
 
+const BUCKET_ID = 'audio_files';
+
 export default async ({ req, res, log, error }: FunctionContext) => {
-    // Get the audio URL from query parameter
     const audioUrl = req.query?.url;
 
-    // CORS headers for all responses
-    const corsHeaders = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-        'Access-Control-Allow-Headers': 'Range, Content-Type',
-        'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
-    };
-
-    // Handle preflight requests
-    if (req.method === 'OPTIONS') {
-        return res.send('', 204, corsHeaders);
-    }
-
-    // Validate URL parameter
     if (!audioUrl) {
-        error('Missing url parameter');
-        return res.json({
-            success: false,
-            error: 'Missing url parameter'
-        }, 400, corsHeaders);
+        return res.json({ success: false, error: 'Missing url parameter' }, 400);
     }
 
     try {
-        // Decode and validate the URL
         const decodedUrl = decodeURIComponent(audioUrl);
         const url = new URL(decodedUrl);
 
-        // Security check: Only allow whitelisted domains
         if (!ALLOWED_DOMAINS.some(domain => url.hostname.endsWith(domain))) {
-            error(`Blocked request to unauthorized domain: ${url.hostname}`);
-            return res.json({
-                success: false,
-                error: 'Unauthorized domain'
-            }, 403, corsHeaders);
+            return res.json({ success: false, error: 'Unauthorized domain' }, 403);
         }
 
-        log(`Proxying audio from: ${url.hostname}`);
+        // Initialize Appwrite
+        const client = new Client()
+            .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT!)
+            .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID!)
+            .setKey(process.env.APPWRITE_API_KEY!);
 
-        // Prepare headers for the upstream request
-        const proxyHeaders: Record<string, string> = {
-            'User-Agent': 'MusicStreamingApp/1.0',
-        };
+        const storage = new Storage(client);
 
-        // Forward Range header for seek support
-        if (req.headers['range']) {
-            proxyHeaders['Range'] = req.headers['range'];
+        // Create a unique file ID based on the URL
+        const fileId = crypto.createHash('md5').update(decodedUrl).digest('hex');
+
+        // 1. Check if file already exists in cache
+        try {
+            await storage.getFile(BUCKET_ID, fileId);
+            log(`Cache hit for: ${fileId}`);
+            return res.json({ success: true, fileId });
+        } catch (e) {
+            log(`Cache miss for: ${fileId}. Fetching from Jamendo...`);
         }
 
-        // Fetch the audio from Jamendo
+        // 2. Fetch from Jamendo
         const response = await fetch(decodedUrl, {
-            method: req.method === 'HEAD' ? 'HEAD' : 'GET',
-            headers: proxyHeaders,
+            headers: { 'User-Agent': 'MusicStreamingApp/1.0' },
         });
 
-        if (!response.ok && response.status !== 206) {
-            error(`Upstream error: ${response.status} ${response.statusText}`);
-            return res.json({
-                success: false,
-                error: `Upstream error: ${response.status}`
-            }, response.status, corsHeaders);
+        if (!response.ok) {
+            throw new Error(`Upstream error: ${response.status}`);
         }
 
-        // Build response headers
-        const responseHeaders: Record<string, string> = {
-            ...corsHeaders,
-            'Content-Type': response.headers.get('Content-Type') || 'audio/mpeg',
-            'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
-        };
-
-        // Forward content-related headers
-        const contentLength = response.headers.get('Content-Length');
-        if (contentLength) {
-            responseHeaders['Content-Length'] = contentLength;
-        }
-
-        const contentRange = response.headers.get('Content-Range');
-        if (contentRange) {
-            responseHeaders['Content-Range'] = contentRange;
-        }
-
-        const acceptRanges = response.headers.get('Accept-Ranges');
-        if (acceptRanges) {
-            responseHeaders['Accept-Ranges'] = acceptRanges;
-        }
-
-        // Get audio data as binary
         const audioBuffer = await response.arrayBuffer();
-        const audioData = new Uint8Array(audioBuffer);
+        const audioBufferNode = Buffer.from(audioBuffer);
 
-        log(`Proxied ${audioData.length} bytes`);
+        // 3. Upload to Appwrite Storage
+        log(`Uploading ${audioBufferNode.length} bytes to bucket...`);
 
-        // Convert to base64 string to ensure stability across SDKs
-        const base64Data = Buffer.from(audioData).toString('base64');
+        try {
+            // Some versions of node-appwrite accept a Buffer directly
+            await (storage as any).createFile(
+                BUCKET_ID,
+                fileId,
+                audioBufferNode,
+                ['read("any")'] // Optional: Set permissions here too
+            );
+            log(`Successfully cached track: ${fileId}`);
+        } catch (uploadError: any) {
+            error(`Upload failed: ${uploadError.message}`);
+            throw uploadError;
+        }
 
-        // Return the base64 string
-        return res.send(base64Data, response.status, responseHeaders);
+        return res.json({ success: true, fileId });
 
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Unknown error';
         error(`Proxy error: ${message}`);
-
-        return res.json({
-            success: false,
-            error: message,
-        }, 500, corsHeaders);
+        return res.json({ success: false, error: message }, 500);
     }
 };

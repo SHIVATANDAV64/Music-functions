@@ -101,7 +101,10 @@
             "entrypoint": "src/main.js",
             "path": "audio-proxy",
             "commands": "npm install && npm run build",
-            "scopes": []
+            "scopes": [
+                "files.read",
+                "files.write"
+            ]
         },
         {
             "$id": "manage-favorites",

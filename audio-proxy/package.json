@@ -9,7 +9,8 @@
         "start": "node src/main.js"
     },
     "dependencies": {
-        "typescript": "^5.0.0",
-        "@types/node": "^20.0.0"
+        "@types/node": "^20.0.0",
+        "node-appwrite": "^14.2.0",
+        "typescript": "^5.0.0"
     }
 }
