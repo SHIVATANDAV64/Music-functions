@@ -1,20 +1,6 @@
-import { Client, Storage, ID } from 'node-appwrite';
+import { Client, Storage } from 'node-appwrite';
+import { File, Blob } from 'web-file-polyfill';
 import crypto from 'crypto';
-
-interface FunctionContext {
-    req: {
-        query: Record<string, string>;
-        headers: Record<string, string>;
-        method: string;
-        path: string;
-    };
-    res: {
-        send: (data: Uint8Array | string, status?: number, headers?: Record<string, string>) => void;
-        json: (data: unknown, status?: number, headers?: Record<string, string>) => void;
-    };
-    log: (message: string) => void;
-    error: (message: string) => void;
-}
 
 const ALLOWED_DOMAINS = [
     'prod-1.storage.jamendo.com',
@@ -25,7 +11,7 @@ const ALLOWED_DOMAINS = [
 
 const BUCKET_ID = 'audio_files';
 
-export default async ({ req, res, log, error }: FunctionContext) => {
+export default async ({ req, res, log, error }: any) => {
     const audioUrl = req.query?.url;
 
     if (!audioUrl) {
@@ -73,10 +59,11 @@ export default async ({ req, res, log, error }: FunctionContext) => {
         const audioBufferNode = Buffer.from(audioBuffer);
 
         // 3. Upload to Appwrite Storage
-        // Appwrite Node SDK v14+ uses the standard File object (global in Node.js 21)
         log(`Uploading ${audioBufferNode.length} bytes to bucket...`);
 
         try {
+            // Appwrite Node SDK v14+ uses the standard File object.
+            // Using web-file-polyfill for Node < 22 compatibility.
             const fileToUpload = new File(
                 [audioBufferNode],
                 `${fileId}.mp3`,
