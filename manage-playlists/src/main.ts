@@ -31,13 +31,19 @@ interface FunctionContext {
     error: (message: string) => void;
 }
 
-const DATABASE_ID = 'music_db';
+const DATABASE_ID = process.env.APPWRITE_DATABASE_ID!;
 
 export default async ({ req, res, log, error }: FunctionContext) => {
+    // API key from environment, not from header
+    const apiKey = process.env.APPWRITE_API_KEY;
+    if (!apiKey) {
+        return res.json({ success: false, error: 'API key not configured' }, 500);
+    }
+
     const client = new Client()
         .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT!)
         .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID!)
-        .setKey(req.headers['x-appwrite-key']);
+        .setKey(apiKey);
 
     const databases = new Databases(client);
 
