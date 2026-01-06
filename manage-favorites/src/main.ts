@@ -15,6 +15,7 @@ interface RequestBody {
     trackSource?: 'jamendo' | 'appwrite';
     limit?: number;
     offset?: number;
+    metadata?: any; // Full track metadata for ingestion
 }
 
 interface FunctionContext {
@@ -80,6 +81,35 @@ export default async ({ req, res, log, error }: FunctionContext) => {
             case 'add': {
                 if (!trackId) {
                     return res.json({ success: false, error: 'Track ID required' }, 400);
+                }
+
+                // Metadata Ingestion Logic
+                if (body.metadata && trackSource === 'jamendo') {
+                    const meta = body.metadata;
+                    try {
+                        await databases.getDocument(DATABASE_ID, 'tracks', trackId);
+                    } catch (e: any) {
+                        if (e.code === 404) {
+                            log(`Ingesting Jamendo track ${trackId} metadata (from add favorite)...`);
+                            await databases.createDocument(
+                                DATABASE_ID,
+                                'tracks',
+                                trackId,
+                                {
+                                    title: meta.title,
+                                    artist: meta.artist,
+                                    album: meta.album,
+                                    duration: meta.duration,
+                                    source: 'jamendo',
+                                    jamendo_id: meta.jamendo_id || trackId,
+                                    audio_url: meta.audio_url,
+                                    cover_url: meta.cover_url,
+                                    play_count: 0
+                                },
+                                [Permission.read(Role.any())]
+                            );
+                        }
+                    }
                 }
 
                 // Check if already favorited
@@ -164,6 +194,35 @@ export default async ({ req, res, log, error }: FunctionContext) => {
                     );
                     return res.json({ success: true, isFavorite: false });
                 } else {
+                    // Metadata Ingestion logic for toggle (add)
+                    if (body.metadata && trackSource === 'jamendo') {
+                        const meta = body.metadata;
+                        try {
+                            await databases.getDocument(DATABASE_ID, 'tracks', trackId);
+                        } catch (e: any) {
+                            if (e.code === 404) {
+                                log(`Ingesting Jamendo track ${trackId} metadata (from toggle)...`);
+                                await databases.createDocument(
+                                    DATABASE_ID,
+                                    'tracks',
+                                    trackId,
+                                    {
+                                        title: meta.title,
+                                        artist: meta.artist,
+                                        album: meta.album,
+                                        duration: meta.duration,
+                                        source: 'jamendo',
+                                        jamendo_id: meta.jamendo_id || trackId,
+                                        audio_url: meta.audio_url,
+                                        cover_url: meta.cover_url,
+                                        play_count: 0
+                                    },
+                                    [Permission.read(Role.any())]
+                                );
+                            }
+                        }
+                    }
+
                     // Add favorite
                     await databases.createDocument(
                         DATABASE_ID,
@@ -195,22 +254,20 @@ export default async ({ req, res, log, error }: FunctionContext) => {
                     ]
                 );
 
-                // Fetch Appwrite track details for non-Jamendo tracks
+                // Unified Inflation Logic: Fetch track details for EVERY favorite
                 const tracksWithDetails = await Promise.all(
                     favorites.documents.map(async (fav: any) => {
-                        if (fav.track_source === 'appwrite') {
-                            try {
-                                const track = await databases.getDocument(
-                                    DATABASE_ID,
-                                    'tracks',
-                                    fav.track_id
-                                );
-                                return { ...fav, track };
-                            } catch {
-                                return fav;
-                            }
+                        try {
+                            const track = await databases.getDocument(
+                                DATABASE_ID,
+                                'tracks',
+                                fav.track_id
+                            );
+                            return { ...fav, track };
+                        } catch {
+                            // Fallback for Jamendo tracks not yet ingested or other errors
+                            return fav;
                         }
-                        return fav;
                     })
                 );
 

@@ -15,6 +15,7 @@ interface RequestBody {
     isEpisode?: boolean;
     position?: number;
     limit?: number;
+    metadata?: any; // Full track/episode metadata for ingestion
 }
 
 interface FunctionContext {
@@ -62,7 +63,38 @@ export default async ({ req, res, log, error }: FunctionContext) => {
                     return res.json({ success: false, error: 'Item ID required' }, 400);
                 }
 
-                // Check for existing entry
+                // Metadata Ingestion Logic
+                if (body.metadata && !isEpisode) {
+                    const meta = body.metadata;
+                    // Check if track already exists in our tracks collection
+                    try {
+                        await databases.getDocument(DATABASE_ID, 'tracks', itemId);
+                        log(`Track ${itemId} already exists in DB.`);
+                    } catch (e: any) {
+                        if (e.code === 404) {
+                            log(`Ingesting Jamendo track ${itemId} metadata...`);
+                            await databases.createDocument(
+                                DATABASE_ID,
+                                'tracks',
+                                itemId, // Use original ID
+                                {
+                                    title: meta.title,
+                                    artist: meta.artist,
+                                    album: meta.album,
+                                    duration: meta.duration,
+                                    source: 'jamendo',
+                                    jamendo_id: meta.jamendo_id || itemId,
+                                    audio_url: meta.audio_url,
+                                    cover_url: meta.cover_url,
+                                    play_count: 1
+                                },
+                                [Permission.read(Role.any())]
+                            );
+                        }
+                    }
+                }
+
+                // Check for existing history entry
                 const existing = await databases.listDocuments(
                     DATABASE_ID,
                     'recently_played',
@@ -154,9 +186,27 @@ export default async ({ req, res, log, error }: FunctionContext) => {
                     ]
                 );
 
+                // Inflation Logic: Fetch full track/episode details
+                const inflatedHistory = await Promise.all(
+                    history.documents.map(async (doc: any) => {
+                        try {
+                            if (doc.track_id) {
+                                const track = await databases.getDocument(DATABASE_ID, 'tracks', doc.track_id);
+                                return { ...doc, track };
+                            } else if (doc.episode_id) {
+                                const episode = await databases.getDocument(DATABASE_ID, 'episodes', doc.episode_id);
+                                return { ...doc, episode };
+                            }
+                        } catch (e) {
+                            // If details missing, return base doc
+                        }
+                        return doc;
+                    })
+                );
+
                 return res.json({
                     success: true,
-                    data: history.documents,
+                    data: inflatedHistory,
                     total: history.total,
                 });
             }
