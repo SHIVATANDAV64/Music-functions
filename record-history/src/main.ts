@@ -85,6 +85,7 @@ export default async ({ req, res, log, error }: FunctionContext) => {
                                     source: 'jamendo',
                                     jamendo_id: meta.jamendo_id || itemId,
                                     audio_url: meta.audio_url,
+                                    audio_file_id: meta.audio_file_id || null,
                                     cover_url: meta.cover_url,
                                     play_count: 1
                                 },

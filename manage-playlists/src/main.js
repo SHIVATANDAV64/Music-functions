@@ -60,21 +60,29 @@ export default async ({ req, res, log, error }) => {
                 if (playlist.user_id !== userId && !playlist.is_public) {
                     return res.json({ success: false, error: 'Access denied' }, 403);
                 }
-                // Get tracks
+                // Get tracks from playlist_tracks collection
                 const tracksResult = await databases.listDocuments(DATABASE_ID, 'playlist_tracks', [
                     Query.equal('playlist_id', playlistId),
                     Query.orderAsc('position'),
                 ]);
-                // Fetch full track data
-                const trackIds = tracksResult.documents.map((t) => t.track_id);
-                let tracks = [];
-                if (trackIds.length > 0) {
-                    const tracksData = await databases.listDocuments(DATABASE_ID, 'tracks', [Query.equal('$id', trackIds)]);
-                    tracks = tracksData.documents;
-                }
+                // For Appwrite tracks, we can optionally attach metadata, 
+                // but for Jamendo tracks, the frontend will handle retrieval.
+                // To keep it consistent with manage-favorites, we'll return the joined data.
+                const tracksWithDetails = await Promise.all(tracksResult.documents.map(async (pt) => {
+                    if (pt.track_source === 'appwrite') {
+                        try {
+                            const track = await databases.getDocument(DATABASE_ID, 'tracks', pt.track_id);
+                            return { ...pt, track };
+                        }
+                        catch {
+                            return pt;
+                        }
+                    }
+                    return pt;
+                }));
                 return res.json({
                     success: true,
-                    data: { ...playlist, tracks },
+                    data: { ...playlist, tracks: tracksWithDetails },
                 });
             }
             case 'update': {
@@ -125,7 +133,6 @@ export default async ({ req, res, log, error }) => {
                 const playlistTrack = await databases.createDocument(DATABASE_ID, 'playlist_tracks', ID.unique(), {
                     playlist_id: playlistId,
                     track_id: trackId,
-                    track_source: trackSource || 'jamendo',
                     position: position ?? nextPosition,
                     added_at: new Date().toISOString(),
                 }, [
