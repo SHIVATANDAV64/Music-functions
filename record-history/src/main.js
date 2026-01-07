@@ -38,33 +38,50 @@ export default async ({ req, res, log, error }) => {
                     // Check if track already exists in our tracks collection
                     try {
                         await databases.getDocument(DATABASE_ID, 'tracks', itemId);
-                        log(`Track ${itemId} already exists in DB.`);
+                        log(`[record] Track ${itemId} already exists in DB.`);
                     }
                     catch (e) {
                         if (e.code === 404) {
-                            log(`Ingesting Jamendo track ${itemId} metadata...`);
+                            log(`[record] Ingesting Jamendo track ${itemId} metadata...`);
+                            // Safe truncation for string attributes (default 255 limit)
+                            const safe = (val, max = 255) => {
+                                if (!val)
+                                    return null;
+                                return val.length > max ? val.substring(0, max) : val;
+                            };
                             try {
-                                await databases.createDocument(DATABASE_ID, 'tracks', itemId, {
-                                    title: meta.title || 'Unknown',
-                                    artist: meta.artist || 'Unknown',
-                                    album: meta.album || null,
-                                    duration: meta.duration || 0,
+                                const trackData = {
+                                    title: safe(meta.title, 255) || 'Unknown',
+                                    artist: safe(meta.artist, 255) || 'Unknown',
+                                    album: safe(meta.album, 255) || null,
+                                    duration: Number(meta.duration) || 0,
                                     source: meta.source || 'jamendo',
-                                    jamendo_id: meta.jamendo_id || itemId,
-                                    audio_url: meta.audio_url || null,
+                                    jamendo_id: String(meta.jamendo_id || itemId),
+                                    audio_url: meta.audio_url || null, // MP3 URLs can be long
                                     audio_file_id: meta.audio_file_id || null,
                                     cover_url: meta.cover_url || null,
                                     cover_image_id: meta.cover_image_id || null,
                                     play_count: 1
-                                }, [Permission.read(Role.any())]);
-                                log(`Successfully created track ${itemId}`);
+                                };
+                                log(`[record] Target track data: ${JSON.stringify({
+                                    title: trackData.title,
+                                    audio_len: trackData.audio_url?.length || 0,
+                                    cover_len: trackData.cover_url?.length || 0
+                                })}`);
+                                await databases.createDocument(DATABASE_ID, 'tracks', itemId, trackData, [Permission.read(Role.any())]);
+                                log(`[record] Successfully created track ${itemId}`);
                             }
                             catch (createErr) {
-                                error(`Failed to create track ${itemId}: ${createErr.message}`);
+                                error(`[record] Failed to create track ${itemId}: ${createErr.message}`);
+                                error(`[record] Error details: ${JSON.stringify(createErr)}`);
+                                // If it's a validation error, it's likely attribute size or missing attribute
+                                if (createErr.code === 400) {
+                                    error(`[record] CHECK YOUR DATABASE: Ensure the 'tracks' collection has all required attributes and string limits are sufficient (e.g., 500+ for URLs).`);
+                                }
                             }
                         }
                         else {
-                            error(`Error checking track ${itemId}: ${e.message}`);
+                            error(`[record] Error checking track ${itemId}: ${e.message}`);
                         }
                     }
                 }
