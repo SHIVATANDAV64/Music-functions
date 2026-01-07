@@ -34,6 +34,7 @@ export default async ({ req, res, log, error }) => {
                 // Metadata Ingestion Logic
                 if (body.metadata && !isEpisode) {
                     const meta = body.metadata;
+                    log(`[record] Received metadata for track ${itemId}: title=${meta.title}, artist=${meta.artist}`);
                     // Check if track already exists in our tracks collection
                     try {
                         await databases.getDocument(DATABASE_ID, 'tracks', itemId);
@@ -42,21 +43,33 @@ export default async ({ req, res, log, error }) => {
                     catch (e) {
                         if (e.code === 404) {
                             log(`Ingesting Jamendo track ${itemId} metadata...`);
-                            await databases.createDocument(DATABASE_ID, 'tracks', itemId, // Use original ID
-                            {
-                                title: meta.title,
-                                artist: meta.artist,
-                                album: meta.album,
-                                duration: meta.duration,
-                                source: 'jamendo',
-                                jamendo_id: meta.jamendo_id || itemId,
-                                audio_url: meta.audio_url,
-                                audio_file_id: meta.audio_file_id || null,
-                                cover_url: meta.cover_url,
-                                play_count: 1
-                            }, [Permission.read(Role.any())]);
+                            try {
+                                await databases.createDocument(DATABASE_ID, 'tracks', itemId, {
+                                    title: meta.title || 'Unknown',
+                                    artist: meta.artist || 'Unknown',
+                                    album: meta.album || null,
+                                    duration: meta.duration || 0,
+                                    source: meta.source || 'jamendo',
+                                    jamendo_id: meta.jamendo_id || itemId,
+                                    audio_url: meta.audio_url || null,
+                                    audio_file_id: meta.audio_file_id || null,
+                                    cover_url: meta.cover_url || null,
+                                    cover_image_id: meta.cover_image_id || null,
+                                    play_count: 1
+                                }, [Permission.read(Role.any())]);
+                                log(`Successfully created track ${itemId}`);
+                            }
+                            catch (createErr) {
+                                error(`Failed to create track ${itemId}: ${createErr.message}`);
+                            }
+                        }
+                        else {
+                            error(`Error checking track ${itemId}: ${e.message}`);
                         }
                     }
+                }
+                else {
+                    log(`[record] No metadata provided for ${itemId}, isEpisode=${isEpisode}`);
                 }
                 // Check for existing history entry
                 const existing = await databases.listDocuments(DATABASE_ID, 'recently_played', [
@@ -125,7 +138,8 @@ export default async ({ req, res, log, error }) => {
                         }
                     }
                     catch (e) {
-                        // If details missing, return base doc
+                        // Log the error but continue - track/episode may have been deleted
+                        log(`[get_history] Failed to inflate ${doc.track_id || doc.episode_id}: ${e.message}`);
                     }
                     return doc;
                 }));
