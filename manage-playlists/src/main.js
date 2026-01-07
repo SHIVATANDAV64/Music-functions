@@ -69,16 +69,22 @@ export default async ({ req, res, log, error }) => {
                 // but for Jamendo tracks, the frontend will handle retrieval.
                 // To keep it consistent with manage-favorites, we'll return the joined data.
                 const tracksWithDetails = await Promise.all(tracksResult.documents.map(async (pt) => {
-                    if (pt.track_source === 'appwrite') {
-                        try {
-                            const track = await databases.getDocument(DATABASE_ID, 'tracks', pt.track_id);
-                            return { ...pt, track };
-                        }
-                        catch {
-                            return pt;
-                        }
+                    try {
+                        const track = await databases.getDocument(DATABASE_ID, 'tracks', pt.track_id);
+                        // Merge track metadata into the playlist_track record
+                        // so it looks like a Track object at the top level
+                        return {
+                            ...track, // Put track metadata first (title, artist, etc.)
+                            $id: track.$id, // Ensure track $id is used
+                            pt_id: pt.$id, // Keep the join record ID separate
+                            position: pt.position,
+                            added_at: pt.added_at,
+                            playlist_id: pt.playlist_id
+                        };
                     }
-                    return pt;
+                    catch {
+                        return pt;
+                    }
                 }));
                 return res.json({
                     success: true,
@@ -154,7 +160,7 @@ export default async ({ req, res, log, error }) => {
                     Query.equal('track_id', trackId),
                 ]);
                 if (existing.documents.length > 0) {
-                    return res.json({ success: false, error: 'Track already in playlist' }, 409);
+                    return res.json({ success: true, message: 'Track already in playlist', data: existing.documents[0] });
                 }
                 // Get next position
                 const lastTrack = await databases.listDocuments(DATABASE_ID, 'playlist_tracks', [
