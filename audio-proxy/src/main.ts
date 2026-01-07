@@ -34,8 +34,20 @@ export default async ({ req, res, log, error }: any) => {
 
         const storage = new Storage(client);
 
-        // Create a unique file ID based on the URL
-        const fileId = crypto.createHash('md5').update(decodedUrl).digest('hex');
+        // Create a unique file ID based on the URL or Jamendo ID
+        let fileId: string;
+
+        // Try to extract Jamendo Track ID for stable caching (avoids duplicates from query params)
+        // Matches: /track/123/ or trackid=123
+        const jamendoIdMatch = decodedUrl.match(/\/track\/(\d+)/) || decodedUrl.match(/trackid=(\d+)/);
+
+        if (jamendoIdMatch && jamendoIdMatch[1]) {
+            fileId = `jamendo_${jamendoIdMatch[1]}`;
+            log(`Identified Jamendo Track ID: ${jamendoIdMatch[1]} -> ${fileId}`);
+        } else {
+            // Fallback for other files
+            fileId = crypto.createHash('md5').update(decodedUrl).digest('hex');
+        }
 
         // 1. Check if file already exists in cache
         try {
