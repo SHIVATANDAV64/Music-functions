@@ -67,8 +67,10 @@ export default async ({ req, res, log, error }) => {
                                 jamendo_id: String(meta.jamendo_id || trackId),
                                 audio_url: meta.audio_url || null,
                                 audio_file_id: meta.audio_file_id || `jamendo_${trackId}`,
+                                audio_filename: meta.audio_filename || (meta.title ? `${meta.title.substring(0, 50)}.mp3` : 'track.mp3'),
                                 cover_url: meta.cover_url || null,
                                 cover_image_id: meta.cover_image_id || `jamendo_cover_${trackId}`,
+                                cover_filename: meta.cover_filename || (meta.title ? `${meta.title.substring(0, 50)}_cover.jpg` : 'cover.jpg'),
                                 play_count: 0
                             }, [Permission.read(Role.any())]);
                         }
@@ -144,8 +146,10 @@ export default async ({ req, res, log, error }) => {
                                     jamendo_id: String(meta.jamendo_id || trackId),
                                     audio_url: meta.audio_url || null,
                                     audio_file_id: meta.audio_file_id || `jamendo_${trackId}`,
+                                    audio_filename: meta.audio_filename || (meta.title ? `${meta.title.substring(0, 50)}.mp3` : 'track.mp3'),
                                     cover_url: meta.cover_url || null,
                                     cover_image_id: meta.cover_image_id || `jamendo_cover_${trackId}`,
+                                    cover_filename: meta.cover_filename || (meta.title ? `${meta.title.substring(0, 50)}_cover.jpg` : 'cover.jpg'),
                                     play_count: 0
                                 }, [Permission.read(Role.any())]);
                             }

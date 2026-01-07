@@ -230,7 +230,7 @@ export default async ({ req, res, log, error }: FunctionContext) => {
                     {
                         playlist_id: playlistId,
                         track_id: trackId,
-
+                        track_source: trackSource || 'jamendo',
                         position: position ?? nextPosition,
                         added_at: new Date().toISOString(),
                     },

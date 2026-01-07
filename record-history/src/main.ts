@@ -92,8 +92,10 @@ export default async ({ req, res, log, error }: FunctionContext) => {
                                     jamendo_id: String(meta.jamendo_id || itemId),
                                     audio_url: meta.audio_url || null, // MP3 URLs can be long
                                     audio_file_id: meta.audio_file_id || `jamendo_${itemId}`, // Unique deterministic ID
+                                    audio_filename: (meta as any).audio_filename || (meta.title ? `${meta.title.substring(0, 50)}.mp3` : 'track.mp3'),
                                     cover_url: meta.cover_url || null,
                                     cover_image_id: meta.cover_image_id || `jamendo_cover_${itemId}`, // Unique deterministic ID
+                                    cover_filename: (meta as any).cover_filename || (meta.title ? `${meta.title.substring(0, 50)}_cover.jpg` : 'cover.jpg'),
                                     play_count: 1
                                 };
 

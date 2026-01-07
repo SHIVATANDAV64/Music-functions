@@ -133,6 +133,7 @@ export default async ({ req, res, log, error }) => {
                 const playlistTrack = await databases.createDocument(DATABASE_ID, 'playlist_tracks', ID.unique(), {
                     playlist_id: playlistId,
                     track_id: trackId,
+                    track_source: trackSource || 'jamendo',
                     position: position ?? nextPosition,
                     added_at: new Date().toISOString(),
                 }, [

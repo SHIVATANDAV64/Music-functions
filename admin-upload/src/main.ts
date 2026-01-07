@@ -16,7 +16,9 @@ interface TrackData {
     genre?: string;
     duration: number;
     audioFileId: string;
+    audioFilename?: string;
     coverImageId?: string;
+    coverFilename?: string;
 }
 
 interface PodcastData {
@@ -108,7 +110,9 @@ export default async ({ req, res, log, error }: FunctionContext) => {
                         genre: trackData.genre?.trim() || null,
                         duration: trackData.duration || 0,
                         audio_file_id: trackData.audioFileId,
+                        audio_filename: (trackData as any).audioFilename || null,
                         cover_image_id: trackData.coverImageId || null,
+                        cover_filename: (trackData as any).coverFilename || null,
                         play_count: 0,
                     }
                 );
