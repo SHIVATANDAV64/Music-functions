@@ -17,6 +17,7 @@ interface RequestBody {
     trackId?: string;
     trackSource?: 'jamendo' | 'appwrite';
     position?: number;
+    metadata?: any;
 }
 
 interface FunctionContext {
@@ -192,6 +193,48 @@ export default async ({ req, res, log, error }: FunctionContext) => {
             case 'add_track': {
                 if (!playlistId || !trackId) {
                     return res.json({ success: false, error: 'Playlist ID and Track ID required' }, 400);
+                }
+
+                const body: RequestBody = req.body ? JSON.parse(req.body) : {};
+                const { metadata } = body;
+
+                // 1. Ensure track exists in tracks collection if it's Jamendo
+                if (trackSource === 'jamendo' && metadata) {
+                    try {
+                        const meta = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
+                        const safe = (val: any, limit: number) => typeof val === 'string' ? val.substring(0, limit) : val;
+
+                        // Check if already in DB
+                        try {
+                            await databases.getDocument(DATABASE_ID, 'tracks', trackId);
+                        } catch {
+                            // Create it
+                            log(`[add_track] Ingesting unknown Jamendo track: ${trackId}`);
+                            await databases.createDocument(
+                                DATABASE_ID,
+                                'tracks',
+                                trackId,
+                                {
+                                    title: safe(meta.title, 255),
+                                    artist: safe(meta.artist, 255),
+                                    album: safe(meta.album, 255),
+                                    duration: Number(meta.duration) || 0,
+                                    source: 'jamendo',
+                                    jamendo_id: String(meta.jamendo_id || trackId),
+                                    audio_url: meta.audio_url || null,
+                                    audio_file_id: meta.audio_file_id || `jamendo_${trackId}`,
+                                    audio_filename: (meta as any).audio_filename || (meta.title ? `${meta.title.substring(0, 50)}.mp3` : 'track.mp3'),
+                                    cover_url: meta.cover_url || null,
+                                    cover_image_id: meta.cover_image_id || `jamendo_cover_${trackId}`,
+                                    cover_filename: (meta as any).cover_filename || (meta.title ? `${meta.title.substring(0, 50)}_cover.jpg` : 'cover.jpg'),
+                                    play_count: 0
+                                },
+                                [Permission.read(Role.any())]
+                            );
+                        }
+                    } catch (e) {
+                        log(`[add_track] Ingestion skipped: ${e instanceof Error ? e.message : 'Unknown'}`);
+                    }
                 }
 
                 // Check for duplicates

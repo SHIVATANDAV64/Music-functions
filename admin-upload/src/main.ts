@@ -113,6 +113,7 @@ export default async ({ req, res, log, error }: FunctionContext) => {
                         audio_filename: (trackData as any).audioFilename || null,
                         cover_image_id: trackData.coverImageId || null,
                         cover_filename: (trackData as any).coverFilename || null,
+                        source: 'appwrite',
                         play_count: 0,
                     }
                 );

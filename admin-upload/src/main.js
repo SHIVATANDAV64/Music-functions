@@ -46,7 +46,10 @@ export default async ({ req, res, log, error }) => {
                     genre: trackData.genre?.trim() || null,
                     duration: trackData.duration || 0,
                     audio_file_id: trackData.audioFileId,
+                    audio_filename: trackData.audioFilename || null,
                     cover_image_id: trackData.coverImageId || null,
+                    cover_filename: trackData.coverFilename || null,
+                    source: 'appwrite',
                     play_count: 0,
                 });
                 log(`Created track: ${track.$id}`);
