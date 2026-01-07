@@ -151,7 +151,8 @@ export default async ({ req, res, log, error }) => {
                         }
                     }
                     catch (e) {
-                        log(`[add_track] Ingestion skipped: ${e instanceof Error ? e.message : 'Unknown'}`);
+                        // Propagate error to let frontend know why ingestion failed
+                        throw new Error(`Ingestion failed: ${e instanceof Error ? e.message : 'Unknown'}`);
                     }
                 }
                 // Check for duplicates
