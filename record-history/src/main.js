@@ -58,15 +58,16 @@ export default async ({ req, res, log, error }) => {
                                     source: meta.source || 'jamendo',
                                     jamendo_id: String(meta.jamendo_id || itemId),
                                     audio_url: meta.audio_url || null, // MP3 URLs can be long
-                                    audio_file_id: meta.audio_file_id || null,
+                                    audio_file_id: meta.audio_file_id || `jamendo_${itemId}`, // Unique deterministic ID
                                     cover_url: meta.cover_url || null,
-                                    cover_image_id: meta.cover_image_id || null,
+                                    cover_image_id: meta.cover_image_id || `jamendo_cover_${itemId}`, // Unique deterministic ID
                                     play_count: 1
                                 };
                                 log(`[record] Target track data: ${JSON.stringify({
                                     title: trackData.title,
                                     audio_len: trackData.audio_url?.length || 0,
-                                    cover_len: trackData.cover_url?.length || 0
+                                    cover_len: trackData.cover_url?.length || 0,
+                                    audio_file_id: trackData.audio_file_id
                                 })}`);
                                 await databases.createDocument(DATABASE_ID, 'tracks', itemId, trackData, [Permission.read(Role.any())]);
                                 log(`[record] Successfully created track ${itemId}`);

@@ -53,15 +53,22 @@ export default async ({ req, res, log, error }) => {
                     catch (e) {
                         if (e.code === 404) {
                             log(`Ingesting Jamendo track ${trackId} metadata (from add favorite)...`);
+                            const safe = (val, max = 255) => {
+                                if (!val)
+                                    return null;
+                                return val.length > max ? val.substring(0, max) : val;
+                            };
                             await databases.createDocument(DATABASE_ID, 'tracks', trackId, {
-                                title: meta.title,
-                                artist: meta.artist,
-                                album: meta.album,
-                                duration: meta.duration,
+                                title: safe(meta.title, 255),
+                                artist: safe(meta.artist, 255),
+                                album: safe(meta.album, 255),
+                                duration: Number(meta.duration) || 0,
                                 source: 'jamendo',
-                                jamendo_id: meta.jamendo_id || trackId,
-                                audio_url: meta.audio_url,
-                                cover_url: meta.cover_url,
+                                jamendo_id: String(meta.jamendo_id || trackId),
+                                audio_url: meta.audio_url || null,
+                                audio_file_id: meta.audio_file_id || `jamendo_${trackId}`,
+                                cover_url: meta.cover_url || null,
+                                cover_image_id: meta.cover_image_id || `jamendo_cover_${trackId}`,
                                 play_count: 0
                             }, [Permission.read(Role.any())]);
                         }
@@ -123,15 +130,22 @@ export default async ({ req, res, log, error }) => {
                         catch (e) {
                             if (e.code === 404) {
                                 log(`Ingesting Jamendo track ${trackId} metadata (from toggle)...`);
+                                const safe = (val, max = 255) => {
+                                    if (!val)
+                                        return null;
+                                    return val.length > max ? val.substring(0, max) : val;
+                                };
                                 await databases.createDocument(DATABASE_ID, 'tracks', trackId, {
-                                    title: meta.title,
-                                    artist: meta.artist,
-                                    album: meta.album,
-                                    duration: meta.duration,
+                                    title: safe(meta.title, 255),
+                                    artist: safe(meta.artist, 255),
+                                    album: safe(meta.album, 255),
+                                    duration: Number(meta.duration) || 0,
                                     source: 'jamendo',
-                                    jamendo_id: meta.jamendo_id || trackId,
-                                    audio_url: meta.audio_url,
-                                    cover_url: meta.cover_url,
+                                    jamendo_id: String(meta.jamendo_id || trackId),
+                                    audio_url: meta.audio_url || null,
+                                    audio_file_id: meta.audio_file_id || `jamendo_${trackId}`,
+                                    cover_url: meta.cover_url || null,
+                                    cover_image_id: meta.cover_image_id || `jamendo_cover_${trackId}`,
                                     play_count: 0
                                 }, [Permission.read(Role.any())]);
                             }
