@@ -95,6 +95,13 @@ export default async ({ req, res, log, error }) => {
                 if (!playlistId) {
                     return res.json({ success: false, error: 'Playlist ID required' }, 400);
                 }
+
+                // SECURITY: Verify ownership before update
+                const playlistToUpdate = await databases.getDocument(DATABASE_ID, 'playlists', playlistId);
+                if (playlistToUpdate.user_id !== userId) {
+                    return res.json({ success: false, error: 'Access denied' }, 403);
+                }
+
                 const updates = {};
                 if (name?.trim())
                     updates.name = name.trim();
@@ -107,6 +114,13 @@ export default async ({ req, res, log, error }) => {
                 if (!playlistId) {
                     return res.json({ success: false, error: 'Playlist ID required' }, 400);
                 }
+
+                // SECURITY: Verify ownership before delete
+                const playlistToDelete = await databases.getDocument(DATABASE_ID, 'playlists', playlistId);
+                if (playlistToDelete.user_id !== userId) {
+                    return res.json({ success: false, error: 'Access denied' }, 403);
+                }
+
                 // Delete playlist tracks first
                 const tracks = await databases.listDocuments(DATABASE_ID, 'playlist_tracks', [Query.equal('playlist_id', playlistId)]);
                 for (const track of tracks.documents) {
@@ -119,6 +133,13 @@ export default async ({ req, res, log, error }) => {
                 if (!playlistId || !trackId) {
                     return res.json({ success: false, error: 'Playlist ID and Track ID required' }, 400);
                 }
+
+                // SECURITY: Verify ownership before adding track
+                const playlistForAdd = await databases.getDocument(DATABASE_ID, 'playlists', playlistId);
+                if (playlistForAdd.user_id !== userId) {
+                    return res.json({ success: false, error: 'Access denied' }, 403);
+                }
+
                 const body = req.body ? JSON.parse(req.body) : {};
                 const { metadata } = body;
                 // 1. Ensure track exists in tracks collection if it's Jamendo
@@ -189,6 +210,13 @@ export default async ({ req, res, log, error }) => {
                 if (!playlistId || !trackId) {
                     return res.json({ success: false, error: 'Playlist ID and Track ID required' }, 400);
                 }
+
+                // SECURITY: Verify ownership before removing track
+                const playlistForRemove = await databases.getDocument(DATABASE_ID, 'playlists', playlistId);
+                if (playlistForRemove.user_id !== userId) {
+                    return res.json({ success: false, error: 'Access denied' }, 403);
+                }
+
                 const tracks = await databases.listDocuments(DATABASE_ID, 'playlist_tracks', [
                     Query.equal('playlist_id', playlistId),
                     Query.equal('track_id', trackId),

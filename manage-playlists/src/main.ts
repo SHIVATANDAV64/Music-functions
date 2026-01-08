@@ -162,6 +162,12 @@ export default async ({ req, res, log, error }: FunctionContext) => {
                     return res.json({ success: false, error: 'Playlist ID required' }, 400);
                 }
 
+                // SECURITY: Verify ownership before update
+                const playlistToUpdate = await databases.getDocument(DATABASE_ID, 'playlists', playlistId);
+                if ((playlistToUpdate as any).user_id !== userId) {
+                    return res.json({ success: false, error: 'Access denied' }, 403);
+                }
+
                 const updates: Record<string, unknown> = {};
                 if (name?.trim()) updates.name = name.trim();
                 if (description !== undefined) updates.description = description?.trim() || null;
@@ -179,6 +185,12 @@ export default async ({ req, res, log, error }: FunctionContext) => {
             case 'delete': {
                 if (!playlistId) {
                     return res.json({ success: false, error: 'Playlist ID required' }, 400);
+                }
+
+                // SECURITY: Verify ownership before delete
+                const playlistToDelete = await databases.getDocument(DATABASE_ID, 'playlists', playlistId);
+                if ((playlistToDelete as any).user_id !== userId) {
+                    return res.json({ success: false, error: 'Access denied' }, 403);
                 }
 
                 // Delete playlist tracks first
@@ -199,6 +211,12 @@ export default async ({ req, res, log, error }: FunctionContext) => {
             case 'add_track': {
                 if (!playlistId || !trackId) {
                     return res.json({ success: false, error: 'Playlist ID and Track ID required' }, 400);
+                }
+
+                // SECURITY: Verify ownership before adding track
+                const playlistForAdd = await databases.getDocument(DATABASE_ID, 'playlists', playlistId);
+                if ((playlistForAdd as any).user_id !== userId) {
+                    return res.json({ success: false, error: 'Access denied' }, 403);
                 }
 
                 const body: RequestBody = req.body ? JSON.parse(req.body) : {};
@@ -297,6 +315,12 @@ export default async ({ req, res, log, error }: FunctionContext) => {
             case 'remove_track': {
                 if (!playlistId || !trackId) {
                     return res.json({ success: false, error: 'Playlist ID and Track ID required' }, 400);
+                }
+
+                // SECURITY: Verify ownership before removing track
+                const playlistForRemove = await databases.getDocument(DATABASE_ID, 'playlists', playlistId);
+                if ((playlistForRemove as any).user_id !== userId) {
+                    return res.json({ success: false, error: 'Access denied' }, 403);
                 }
 
                 const tracks = await databases.listDocuments(
