@@ -60,6 +60,7 @@ const DATABASE_ID = process.env.APPWRITE_DATABASE_ID!;
 export default async ({ req, res, log, error }: FunctionContext) => {
     const apiKey = process.env.APPWRITE_API_KEY;
     if (!apiKey) {
+        error('Configuration Error: APPWRITE_API_KEY is missing');
         return res.json({ success: false, error: 'API key not configured' }, 500);
     }
 
@@ -72,24 +73,40 @@ export default async ({ req, res, log, error }: FunctionContext) => {
 
     const userId = req.headers['x-appwrite-user-id'];
     if (!userId) {
+        error('Authentication Error: Missing x-appwrite-user-id header');
         return res.json({ success: false, error: 'Unauthorized' }, 401);
     }
 
     try {
         // Verify admin role
-        const user = await databases.getDocument(DATABASE_ID, 'users', userId);
-        if (!user.is_admin) {
-            return res.json({ success: false, error: 'Admin access required' }, 403);
+        try {
+            const user = await databases.getDocument(DATABASE_ID, 'users', userId);
+            if (!user.is_admin) {
+                error(`Access Denied: User ${userId} is not an admin`);
+                return res.json({ success: false, error: 'Admin access required' }, 403);
+            }
+        } catch (dbError: any) {
+            error(`User Verification Failed: ${dbError.message}`);
+            return res.json({ success: false, error: 'Failed to verify user permissions' }, 500);
         }
 
-        const body: RequestBody = req.body ? JSON.parse(req.body) : {};
-        const { contentType, data } = body;
+        let body: RequestBody;
+        try {
+            body = req.body ? JSON.parse(req.body) : {};
+        } catch (parseError) {
+            error('JSON Parse Error: Failed to parse request body');
+            return res.json({ success: false, error: 'Invalid JSON body' }, 400);
+        }
 
-        log(`Admin upload: ${contentType} by ${userId}`);
+        const { contentType, data } = body;
+        log(`Starting Admin Upload: Type=${contentType}, User=${userId}`);
 
         switch (contentType) {
             case 'track': {
                 const trackData = data as TrackData;
+
+                // Logging payload for debug (sensitive data omitted if any)
+                log(`Track Payload: Title="${trackData.title}", Artist="${trackData.artist}", AudioID=${trackData.audioFileId}, CoverID=${trackData.coverImageId || 'NULL'}`);
 
                 if (!trackData.title?.trim() || !trackData.artist?.trim()) {
                     return res.json({ success: false, error: 'Title and artist required' }, 400);
@@ -99,51 +116,67 @@ export default async ({ req, res, log, error }: FunctionContext) => {
                     return res.json({ success: false, error: 'Audio file ID required' }, 400);
                 }
 
-                const track = await databases.createDocument(
-                    DATABASE_ID,
-                    'tracks',
-                    ID.unique(),
-                    {
-                        title: trackData.title.trim(),
-                        artist: trackData.artist.trim(),
-                        album: trackData.album?.trim() || null,
-                        genre: trackData.genre?.trim() || null,
-                        duration: trackData.duration || 0,
-                        audio_file_id: trackData.audioFileId,
-                        audio_filename: (trackData as any).audioFilename || null,
-                        cover_image_id: trackData.coverImageId || null,
-                        cover_filename: (trackData as any).coverFilename || null,
-                        source: 'appwrite',
-                        play_count: 0,
-                    }
-                );
+                // Construct document object explicitly to avoid 'undefined' issues
+                const trackDoc = {
+                    title: trackData.title.trim(),
+                    artist: trackData.artist.trim(),
+                    album: trackData.album?.trim() || null,
+                    genre: trackData.genre?.trim() || null,
+                    duration: trackData.duration || 0,
+                    audio_file_id: trackData.audioFileId,
+                    audio_filename: trackData.audioFilename || null,
+                    // If coverImageId is missing/null/undefined, we send null. 
+                    // CRITICAL: If DB schema requires this, it MUST be provided. 
+                    // We interpret "missing attribute" error as this field being null when not allowed.
+                    cover_image_id: trackData.coverImageId || null,
+                    cover_filename: trackData.coverFilename || null,
+                    source: 'appwrite',
+                    play_count: 0,
+                };
 
-                log(`Created track: ${track.$id}`);
-                return res.json({ success: true, data: track });
+                try {
+                    const track = await databases.createDocument(
+                        DATABASE_ID,
+                        'tracks',
+                        ID.unique(),
+                        trackDoc
+                    );
+                    log(`Success: Created track ${track.$id}`);
+                    return res.json({ success: true, data: track });
+                } catch (dbError: any) {
+                    error(`DB Creation Failed (Track): ${dbError.message}`);
+                    // Return the specific Appwrite error to help the user debug
+                    return res.json({ success: false, error: `Database error: ${dbError.message}` }, 500);
+                }
             }
 
             case 'podcast': {
                 const podcastData = data as PodcastData;
+                log(`Podcast Payload: Title="${podcastData.title}", Author="${podcastData.author}"`);
 
                 if (!podcastData.title?.trim() || !podcastData.author?.trim()) {
                     return res.json({ success: false, error: 'Title and author required' }, 400);
                 }
 
-                const podcast = await databases.createDocument(
-                    DATABASE_ID,
-                    'podcasts',
-                    ID.unique(),
-                    {
-                        title: podcastData.title.trim(),
-                        author: podcastData.author.trim(),
-                        description: podcastData.description?.trim() || null,
-                        category: podcastData.category?.trim() || null,
-                        cover_image_id: podcastData.coverImageId || null,
-                    }
-                );
-
-                log(`Created podcast: ${podcast.$id}`);
-                return res.json({ success: true, data: podcast });
+                try {
+                    const podcast = await databases.createDocument(
+                        DATABASE_ID,
+                        'podcasts',
+                        ID.unique(),
+                        {
+                            title: podcastData.title.trim(),
+                            author: podcastData.author.trim(),
+                            description: podcastData.description?.trim() || null,
+                            category: podcastData.category?.trim() || null,
+                            cover_image_id: podcastData.coverImageId || null,
+                        }
+                    );
+                    log(`Success: Created podcast ${podcast.$id}`);
+                    return res.json({ success: true, data: podcast });
+                } catch (dbError: any) {
+                    error(`DB Creation Failed (Podcast): ${dbError.message}`);
+                    return res.json({ success: false, error: `Database error: ${dbError.message}` }, 500);
+                }
             }
 
             case 'episode': {
@@ -157,25 +190,29 @@ export default async ({ req, res, log, error }: FunctionContext) => {
                     return res.json({ success: false, error: 'Audio file ID required' }, 400);
                 }
 
-                // Verify podcast exists
-                await databases.getDocument(DATABASE_ID, 'podcasts', episodeData.podcastId);
+                try {
+                    await databases.getDocument(DATABASE_ID, 'podcasts', episodeData.podcastId);
 
-                const episode = await databases.createDocument(
-                    DATABASE_ID,
-                    'episodes',
-                    ID.unique(),
-                    {
-                        podcast_id: episodeData.podcastId,
-                        title: episodeData.title.trim(),
-                        description: episodeData.description?.trim() || null,
-                        duration: episodeData.duration || 0,
-                        audio_file_id: episodeData.audioFileId,
-                        episode_number: episodeData.episodeNumber || 1,
-                    }
-                );
+                    const episode = await databases.createDocument(
+                        DATABASE_ID,
+                        'episodes',
+                        ID.unique(),
+                        {
+                            podcast_id: episodeData.podcastId,
+                            title: episodeData.title.trim(),
+                            description: episodeData.description?.trim() || null,
+                            duration: episodeData.duration || 0,
+                            audio_file_id: episodeData.audioFileId,
+                            episode_number: episodeData.episodeNumber || 1,
+                        }
+                    );
 
-                log(`Created episode: ${episode.$id}`);
-                return res.json({ success: true, data: episode });
+                    log(`Success: Created episode ${episode.$id}`);
+                    return res.json({ success: true, data: episode });
+                } catch (dbError: any) {
+                    error(`DB Creation Failed (Episode): ${dbError.message}`);
+                    return res.json({ success: false, error: `Database error: ${dbError.message}` }, 500);
+                }
             }
 
             default:
@@ -184,7 +221,7 @@ export default async ({ req, res, log, error }: FunctionContext) => {
 
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Unknown error';
-        error(`Admin upload failed: ${message}`);
-        return res.json({ success: false, error: message }, 500);
+        error(`Unhandled Exception: ${message}`);
+        return res.json({ success: false, error: `Internal error: ${message}` }, 500);
     }
 };

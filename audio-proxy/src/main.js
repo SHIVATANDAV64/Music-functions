@@ -6,6 +6,9 @@ const ALLOWED_DOMAINS = [
     'storage.jamendo.com',
     'mp3l.jamendo.com',
     'mp3d.jamendo.com',
+    'fra.cloud.appwrite.io',
+    'cloud.appwrite.io',
+    'audioos.appwrite.network', // User's custom domain
 ];
 const BUCKET_ID = 'audio_files';
 export default async ({ req, res, log, error }) => {
